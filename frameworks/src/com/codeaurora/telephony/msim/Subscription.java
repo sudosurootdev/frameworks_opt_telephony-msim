@@ -166,10 +166,6 @@ public final class Subscription {
             m3gpp2Index = from.m3gpp2Index;
             subId = from.subId;
             subStatus = from.subStatus;
-            appId = null;
-            appLabel = null;
-            appType = null;
-            iccId = null;
             if (from.appId != null) {
                 appId = new String(from.appId);
             }

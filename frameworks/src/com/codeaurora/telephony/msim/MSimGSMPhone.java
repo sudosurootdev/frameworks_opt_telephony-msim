@@ -23,7 +23,6 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.database.SQLException;
-import android.os.AsyncResult;
 import android.os.Handler;
 import android.os.Message;
 import android.preference.PreferenceManager;
@@ -85,7 +84,6 @@ public class MSimGSMPhone extends GSMPhone {
                 this, EVENT_SUBSCRIPTION_ACTIVATED, null);
         subMgr.registerForSubscriptionDeactivated(mSubscription,
                 this, EVENT_SUBSCRIPTION_DEACTIVATED, null);
-        mSubscriptionData = subMgr.getCurrentSubscription(mSubscription);
 
         setProperties();
     }
@@ -101,11 +99,6 @@ public class MSimGSMPhone extends GSMPhone {
 
     @Override
     public void handleMessage(Message msg) {
-        if (!mIsTheCurrentActivePhone) {
-            log("Received message " + msg +
-                    "[" + msg.what + "] while being destroyed. Ignoring.");
-            return;
-        }
         switch (msg.what) {
             case EVENT_SUBSCRIPTION_ACTIVATED:
                 log("EVENT_SUBSCRIPTION_ACTIVATED");
@@ -116,19 +109,6 @@ public class MSimGSMPhone extends GSMPhone {
                 log("EVENT_SUBSCRIPTION_DEACTIVATED");
                 onSubscriptionDeactivated();
                 break;
-
-            case EVENT_GET_BASEBAND_VERSION_DONE:
-                AsyncResult ar;
-                ar = (AsyncResult)msg.obj;
-
-                if (ar.exception != null) {
-                    break;
-                }
-
-                log("Baseband version: " + ar.result);
-                super.setSystemProperty(TelephonyProperties.PROPERTY_BASEBAND_VERSION,
-                        (String)ar.result);
-            break;
 
             default:
                 super.handleMessage(msg);
@@ -159,6 +139,7 @@ public class MSimGSMPhone extends GSMPhone {
 
     private void onSubscriptionDeactivated() {
         log("SUBSCRIPTION DEACTIVATED");
+        mSubscriptionData = null;
         resetSubSpecifics();
     }
 
@@ -328,7 +309,7 @@ public class MSimGSMPhone extends GSMPhone {
      */
     @Override
     protected void setCallForwardingPreference(boolean enabled) {
-        log("Set callforwarding info to perferences for sub = "
+        Rlog.d(LOG_TAG, "Set callforwarding info to perferences for sub = "
                 + mSubscription + " enabled = " + enabled);
         SharedPreferences sp = PreferenceManager.getDefaultSharedPreferences(mContext);
         SharedPreferences.Editor edit = sp.edit();
@@ -341,12 +322,12 @@ public class MSimGSMPhone extends GSMPhone {
 
     @Override
     protected boolean getCallForwardingPreference() {
-        log("Get callforwarding info from perferences for sub = "
+        Rlog.d(LOG_TAG, "Get callforwarding info from perferences for sub = "
                 + mSubscription);
 
         SharedPreferences sp = PreferenceManager.getDefaultSharedPreferences(mContext);
         boolean cf = sp.getBoolean((CF_ENABLED + mSubscription), false);
-        log("CF enabled = " + cf);
+        Rlog.d(LOG_TAG, "CF enabled = " + cf);
         return cf;
     }
 
@@ -361,19 +342,10 @@ public class MSimGSMPhone extends GSMPhone {
 
     @Override
     protected void setCardInPhoneBook() {
-        log("setCardInPhoneBook: mSubscriptionData: " + mSubscriptionData);
-        if (mUiccController == null || mSubscriptionData == null
-                || mSubscriptionData.slotId == -1 || mSubscriptionData.
-                subStatus != Subscription.SubscriptionStatus.SUB_ACTIVATED) {
-            mSimPhoneBookIntManager.setIccCard(null);
+        if (mUiccController == null || mSubscriptionData == null) {
             return;
         }
         UiccCard card = ((MSimUiccController)mUiccController).getUiccCard(mSubscriptionData.slotId);
         mSimPhoneBookIntManager.setIccCard(card);
-    }
-
-    @Override
-    protected void log(String s) {
-        Rlog.d(LOG_TAG, "[MSimGSMPhone] ["+mSubscription+"]" + s);
     }
 }
